@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="text-center mt-5">
+        <h1 style="color: #f68b1e;">Welcome to TJ Shop!</h1>
+        <p>Your fresh start is working perfectly.</p>
+        {% if session.get('logged_in') %}
+            <a href="/add" class="btn btn-warning mt-3">➕ Add a Product</a>
+        {% endif %}
+    </div>
+
+    <!-- Search, Category, and Sort Bar -->
+    <div class="row mt-5 g-2">
+        <div class="col-md-6">
+            <form method="GET" action="/" class="d-flex">
+                <input class="form-control me-2" type="search" name="search" placeholder="Search products..." value="{{ search_query }}">
+                <button class="btn btn-warning" type="submit">🔍 Search</button>
+            </form>
+        </div>
+        <div class="col-md-3">
+            <form method="GET" action="/">
+                <select name="category" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat }}" {% if cat == current_category %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="col-md-3">
+            <form method="GET" action="/">
+                <select name="sort" class="form-select" onchange="this.form.submit()">
+                    <option value="">Sort By: Default</option>
+                    <option value="price_low" {% if current_sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="price_high" {% if current_sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <h2 class="mt-5 text-center">Our Products</h2>
+
+    {% if products %}
+        <div class="row mt-3">
+            {% for product in products %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm h-100">
+                    
+                    <!-- TALL IMAGE BOX (4:5 ratio) -->
+                    <div style="width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-bottom: 1px solid #eee;">
+                        {% if product.image_url %}
+                            {% if product.image_url.startswith('http') %}
+                                <img src="{{ product.image_url }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x400?text=No+Image';">
+                            {% else %}
+                                <img src="{{ url_for('static', filename=product.image_url) }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x400?text=No+Image';">
+                            {% endif %}
+                        {% else %}
+                            <div class="d-flex align-items-center justify-content-center bg-light h-100">
+                                <h4 class="text-muted text-center px-2">{{ product.name }}</h4>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-body d-flex flex-column">
+                        <span class="badge bg-secondary mb-2" style="width: fit-content;">{{ product.category or 'Other' }}</span>
+                        <h5 class="card-title">{{ product.name }}</h5>
+                        <p class="card-text text-muted">{{ product.description or '' }}</p>
+                        <h4 class="text-success mt-auto">KSh {{ "{:,.2f}".format(product.price) }}</h4>
+                        
+                        <a href="/add_to_cart/{{ product.id }}" class="btn btn-success mt-2 w-100">🛒 Add to Cart</a>
+
+                        <a href="https://wa.me/254724650536?text=Hello%20TJ%20Shop,%20I%20am%20interested%20in%20buying%20the%20{{ product.name }}%20for%20KSh%20{{ product.price }}.%20Please%20give%20me%20more%20details." target="_blank" class="btn btn-outline-success mt-2 w-100">
+                            💬 Order via WhatsApp
+                        </a>
+
+                        {% if session.get('logged_in') %}
+                            <div class="d-flex gap-2 mt-2">
+                                <a href="/edit/{{ product.id }}" class="btn btn-warning btn-sm w-100">✏️ Edit</a>
+                                <a href="/delete/{{ product.id }}" class="btn btn-danger btn-sm w-100" onclick="return confirm('Delete this product?');">Delete</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center mt-3">
+            {% if search_query or current_category %}
+                No products found. <a href="/">Clear filters</a>
+            {% else %}
+                No products yet. Click the "Add a Product" button above to get started!
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

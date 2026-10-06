@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">📋 Pending Product Submissions</h2>
+    <p class="text-muted">Review products submitted by sellers. Approve them to make them live on TJ Shop, or reject them.</p>
+
+    {% if products %}
+        <div class="row mt-4">
+            {% for product in products %}
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="row g-0">
+                        <div class="col-md-4">
+                            {% if product.image_url %}
+                                <img src="{{ url_for('static', filename=product.image_url) }}" class="img-fluid rounded-start" style="height: 100%; min-height: 200px; object-fit: contain; background-color: #f8f9fa;" alt="{{ product.name }}">
+                            {% else %}
+                                <div class="d-flex align-items-center justify-content-center bg-light h-100">
+                                    <span class="text-muted">No Image</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ product.name }}</h5>
+                                <p class="card-text text-muted small">{{ product.description or 'No description' }}</p>
+                                <h5 class="text-success">KSh {{ "{:,.2f}".format(product.price) }}</h5>
+                                
+                                <hr>
+                                <p class="small mb-1"><strong>Seller:</strong> {{ product.seller_name }}</p>
+                                <p class="small mb-3"><strong>Phone:</strong> {{ product.seller_phone }}</p>
+
+                                <div class="d-flex gap-2">
+                                    <a href="/approve/{{ product.id }}" class="btn btn-success btn-sm w-100" onclick="return confirm('Approve this product and make it live?');">✅ Approve</a>
+                                    <a href="/reject/{{ product.id }}" class="btn btn-danger btn-sm w-100" onclick="return confirm('Reject and permanently delete this product?');">❌ Reject</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center mt-4">
+            🎉 No pending products! Everything has been reviewed.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📊 My Seller Dashboard</h2>
+        <a href="/sell" class="btn btn-warning">➕ Submit New Product</a>
+    </div>
+    <p class="text-muted">Welcome back, {{ session.get('user_name') }}!</p>
+
+    <!-- MY PRODUCTS SECTION -->
+    <h4 class="mt-5 mb-3">My Products</h4>
+    {% if products %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Image</th>
+                        <th>Product Name</th>
+                        <th>Price (KSh)</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>
+                            {% if product.image_url %}
+                                <img src="{{ url_for('static', filename=product.image_url) }}" style="height: 50px; width: 50px; object-fit: cover;" class="rounded">
+                            {% else %}
+                                <span class="text-muted">No Image</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ "{:,.2f}".format(product.price) }}</td>
+                        <td>{{ product.category }}</td>
+                        <td>
+                            {% if product.status == 'Approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif product.status == 'Pending' %}
+                                <span class="badge bg-warning text-dark">Pending Review</span>
+                            {% else %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            You haven't submitted any products yet. Click "Submit New Product" to get started!
+        </div>
+    {% endif %}
+
+    <!-- MY ORDERS SECTION -->
+    <h4 class="mt-5 mb-3">My Sales (Orders)</h4>
+    {% if order_items %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer Name</th>
+                        <th>Product Sold</th>
+                        <th>Quantity</th>
+                        <th>Earnings (KSh)</th>
+                        <th>Order Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order_items %}
+                    <tr>
+                        <td>#{{ item.order.id }}</td>
+                        <td>{{ item.order.customer_name }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ "{:,.2f}".format(item.price * item.quantity) }}</td>
+                        <td>
+                            {% if item.order.status == 'Delivered' %}
+                                <span class="badge bg-success">Delivered</span>
+                            {% elif item.order.status == 'Shipped' %}
+                                <span class="badge bg-info text-dark">Shipped</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            You have not made any sales yet.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

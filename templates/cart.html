@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">🛒 Your Cart</h2>
+
+    {% if cart_items %}
+        <table class="table table-bordered">
+            <thead class="table-dark">
+                <tr>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Subtotal</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>KSh {{ "{:,.2f}".format(item.product.price) }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>KSh {{ "{:,.2f}".format(item.subtotal) }}</td>
+                    <td>
+                        <a href="/remove_from_cart/{{ item.product.id }}" class="btn btn-danger btn-sm">Remove</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="text-end">
+            <h4>Total: <span class="text-success">KSh {{ "{:,.2f}".format(total) }}</span></h4>
+            <a href="/checkout" class="btn btn-success btn-lg mt-2">Proceed to Checkout</a>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            Your cart is empty. <a href="/">Go shopping!</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
