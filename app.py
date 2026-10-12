@@ -1,5 +1,4 @@
 import os
-# updated
 import uuid
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash
@@ -179,7 +178,7 @@ def seller_dashboard():
     
     return render_template('seller_dashboard.html', products=my_products, order_items=my_order_items)
 
-# --- Public Seller Form (Submitting Products) ---
+# --- Public Seller Form ---
 @app.route('/sell', methods=['GET', 'POST'])
 def sell_product():
     if request.method == 'POST':
@@ -203,7 +202,6 @@ def sell_product():
             flash('Invalid price. Please enter a valid number (e.g., 4500).', 'danger')
             return redirect(url_for('sell_product'))
         
-        # --- CLOUDINARY IMAGE UPLOAD ---
         image = request.files.get('image')
         image_url = ""
         if image and image.filename != '':
@@ -366,7 +364,6 @@ def add_product():
             flash('Invalid price. Please enter a valid number (e.g., 4500).', 'danger')
             return redirect(url_for('add_product'))
         
-        # --- CLOUDINARY IMAGE UPLOAD ---
         image = request.files.get('image')
         image_url = ""
         if image and image.filename != '':
@@ -420,7 +417,6 @@ def edit_product(id):
         product.description = description
         product.category = category
         
-        # --- CLOUDINARY IMAGE UPLOAD ---
         image = request.files.get('image')
         if image and image.filename != '':
             try:
@@ -498,3 +494,7 @@ def update_order_status(order_id, new_status):
         order.status = new_status
         db.session.commit()
         flash(f'Order #{order.id} status updated to {new_status}.', 'success')
+    return redirect(url_for('admin_orders'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
