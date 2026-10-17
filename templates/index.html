@@ -1,19 +1,22 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <div class="text-center mt-5">
-        <h1 style="color: #f68b1e;">Welcome to TJ Shop!</h1>
-        <p>Your fresh start is working perfectly.</p>
+    <!-- Hero Banner -->
+    <div class="p-5 mb-4 bg-light rounded-3 text-center" style="background: linear-gradient(135deg, #fdfbf7 0%, #f4f4f4 100%); border: 1px solid #ddd;">
+        <h1 class="display-5 fw-bold" style="color: #f68b1e;">Welcome to TJ Shop</h1>
+        <p class="lead text-muted">Quality products at affordable prices. Fast delivery countrywide.</p>
         {% if session.get('logged_in') %}
-            <a href="/add" class="btn btn-warning mt-3">➕ Add a Product</a>
+            <a href="/add" class="btn btn-warning btn-lg mt-3 shadow-sm">➕ Add a Product (Admin)</a>
+        {% else %}
+            <a href="#products" class="btn btn-warning btn-lg mt-3 shadow-sm">Shop Now</a>
         {% endif %}
     </div>
 
-    <!-- Search, Category, and Sort Bar -->
-    <div class="row mt-5 g-2">
+    <!-- Search & Filter Bar -->
+    <div class="row mb-4 g-2 bg-white p-3 rounded shadow-sm mx-1">
         <div class="col-md-6">
             <form method="GET" action="/" class="d-flex">
-                <input class="form-control me-2" type="search" name="search" placeholder="Search products..." value="{{ search_query }}">
+                <input class="form-control me-2" type="search" name="search" placeholder="Search for products..." value="{{ search_query }}">
                 <button class="btn btn-warning" type="submit">🔍 Search</button>
             </form>
         </div>
@@ -39,45 +42,42 @@
         </div>
     </div>
 
-    <h2 class="mt-5 text-center">Our Products</h2>
+    <h2 class="mb-4 text-center fw-bold" id="products">Our Products</h2>
 
     {% if products %}
-        <div class="row mt-3">
+        <div class="row">
             {% for product in products %}
             <div class="col-md-4 mb-4">
-                <div class="card shadow-sm h-100">
-                    
-                    <!-- TALL IMAGE BOX (4:5 ratio) -->
-                    <div style="width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-bottom: 1px solid #eee;">
-                        {% if product.image_url %}
-                            {% if product.image_url.startswith('http') %}
-                                <img src="{{ product.image_url }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x400?text=No+Image';">
-                            {% else %}
-                                <img src="{{ url_for('static', filename=product.image_url) }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x400?text=No+Image';">
-                            {% endif %}
+                <div class="card shadow-sm h-100 border-0">
+                    {% if product.image_url %}
+                        {% if product.image_url.startswith('http') %}
+                            <img src="{{ product.image_url }}" class="card-img-top" style="height: 250px; width: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x300?text=No+Image';">
                         {% else %}
-                            <div class="d-flex align-items-center justify-content-center bg-light h-100">
-                                <h4 class="text-muted text-center px-2">{{ product.name }}</h4>
-                            </div>
+                            <img src="{{ url_for('static', filename=product.image_url) }}" class="card-img-top" style="height: 250px; width: 100%; object-fit: cover;" alt="{{ product.name }}" onerror="this.onerror=null; this.src='https://via.placeholder.com/300x300?text=No+Image';">
                         {% endif %}
-                    </div>
+                    {% else %}
+                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 250px;">
+                            <h4 class="text-muted">No Image</h4>
+                        </div>
+                    {% endif %}
                     
                     <div class="card-body d-flex flex-column">
-                        <span class="badge bg-secondary mb-2" style="width: fit-content;">{{ product.category or 'Other' }}</span>
-                        <h5 class="card-title">{{ product.name }}</h5>
-                        <p class="card-text text-muted">{{ product.description or '' }}</p>
-                        <h4 class="text-success mt-auto">KSh {{ "{:,.2f}".format(product.price) }}</h4>
+                        <span class="badge bg-secondary mb-2 align-self-start">{{ product.category or 'Other' }}</span>
+                        <h5 class="card-title fw-bold">{{ product.name }}</h5>
+                        <p class="card-text text-muted small">{{ product.description or '' }}</p>
+                        <h4 class="text-success mt-auto fw-bold">KSh {{ "{:,.2f}".format(product.price) }}</h4>
                         
-                        <a href="/add_to_cart/{{ product.id }}" class="btn btn-success mt-2 w-100">🛒 Add to Cart</a>
-
-                        <a href="https://wa.me/254724650536?text=Hello%20TJ%20Shop,%20I%20am%20interested%20in%20buying%20the%20{{ product.name }}%20for%20KSh%20{{ product.price }}.%20Please%20give%20me%20more%20details." target="_blank" class="btn btn-outline-success mt-2 w-100">
-                            💬 Order via WhatsApp
-                        </a>
+                        <div class="d-grid gap-2 mt-3">
+                            <a href="/add_to_cart/{{ product.id }}" class="btn btn-success">🛒 Add to Cart</a>
+                            <a href="https://wa.me/254724650536?text=Hello%20TJ%20Shop,%20I%20am%20interested%20in%20buying%20the%20{{ product.name }}%20for%20KSh%20{{ product.price }}.%20Please%20give%20me%20more%20details." target="_blank" class="btn btn-outline-success">
+                                💬 Order via WhatsApp
+                            </a>
+                        </div>
 
                         {% if session.get('logged_in') %}
                             <div class="d-flex gap-2 mt-2">
-                                <a href="/edit/{{ product.id }}" class="btn btn-warning btn-sm w-100">✏️ Edit</a>
-                                <a href="/delete/{{ product.id }}" class="btn btn-danger btn-sm w-100" onclick="return confirm('Delete this product?');">Delete</a>
+                                <a href="/edit/{{ product.id }}" class="btn btn-warning btn-sm w-50">✏️ Edit</a>
+                                <a href="/delete/{{ product.id }}" class="btn btn-danger btn-sm w-50" onclick="return confirm('Delete this product?');">Delete</a>
                             </div>
                         {% endif %}
                     </div>
@@ -86,11 +86,11 @@
             {% endfor %}
         </div>
     {% else %}
-        <div class="alert alert-info text-center mt-3">
+        <div class="alert alert-info text-center mt-4">
             {% if search_query or current_category %}
-                No products found. <a href="/">Clear filters</a>
+                No products found for your search. <a href="/">Clear filters</a>
             {% else %}
-                No products yet. Click the "Add a Product" button above to get started!
+                No products available yet. Check back soon!
             {% endif %}
         </div>
     {% endif %}
