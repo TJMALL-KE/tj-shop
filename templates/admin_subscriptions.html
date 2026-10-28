@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">💰 Pending Subscription Payments</h2>
+    <p class="text-muted">Verify the M-Pesa codes below before approving. Do not approve if you cannot find the transaction.</p>
+
+    {% if subscriptions %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date</th>
+                        <th>Seller Name</th>
+                        <th>Seller Phone</th>
+                        <th>Plan Requested</th>
+                        <th>M-Pesa Code</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in subscriptions %}
+                    <tr>
+                        <td>{{ sub.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ sub.user.name }}</td>
+                        <td>{{ sub.user.phone }}</td>
+                        <td>{{ sub.plan.name }} (KSh {{ sub.plan.price }})</td>
+                        <td><strong class="text-primary fs-5">{{ sub.mpesa_code }}</strong></td>
+                        <td>
+                            <a href="/admin/approve_subscription/{{ sub.id }}" class="btn btn-success btn-sm" onclick="return confirm('Approve this payment?');">✅ Approve</a>
+                            <a href="/admin/reject_subscription/{{ sub.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Reject this payment?');">❌ Reject</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-success text-center">
+            🎉 No pending subscriptions! Everything is up to date.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

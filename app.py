@@ -3,26 +3,23 @@ import uuid
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta # Added timedelta for subscriptions
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import cloudinary
 import cloudinary.uploader
 
-# Load environment variables FIRST
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tj-super-secret-key')
 
-# --- Cloudinary Configuration ---
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key=os.environ.get('CLOUDINARY_API_KEY'),
     api_secret=os.environ.get('CLOUDINARY_API_SECRET')
 )
 
-# --- Database Configuration ---
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///tjmall.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -30,7 +27,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# --- Your Details ---
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 POCHI_NUMBER = "0724 650 536"
 WHATSAPP_NUMBER = "254724650536"
@@ -42,6 +38,25 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(20), nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+
+class Plan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    product_limit = db.Column(db.Integer, nullable=False)
+
+class Subscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey('plan.id'), nullable=False)
+    status = db.Column(db.String(20), default='Pending') # Pending, Active, Expired, Rejected
+    mpesa_code = db.Column(db.String(20), nullable=True)
+    start_date = db.Column(db.DateTime, nullable=True)
+    expiry_date = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='subscriptions')
+    plan = db.relationship('Plan')
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -76,6 +91,12 @@ class OrderItem(db.Model):
 
 with app.app_context():
     db.create_all()
+    if not Plan.query.first():
+        free_plan = Plan(name='Free', price=0, product_limit=5)
+        basic_plan = Plan(name='Basic', price=300, product_limit=50)
+        business_plan = Plan(name='Business', price=700, product_limit=200)
+        db.session.add_all([free_plan, basic_plan, business_plan])
+        db.session.commit()
 
 # --- Context Processor for Navbar Counts ---
 @app.context_processor
@@ -84,7 +105,8 @@ def inject_counts():
     cart_count = sum(cart.values()) if cart else 0
     pending_count = Product.query.filter_by(status='Pending').count()
     orders_count = Order.query.count()
-    return dict(cart_count=cart_count, pending_count=pending_count, orders_count=orders_count)
+    pending_subs = Subscription.query.filter_by(status='Pending').count() # NEW
+    return dict(cart_count=cart_count, pending_count=pending_count, orders_count=orders_count, pending_subs=pending_subs)
 
 # --- Public Routes ---
 @app.route('/')
@@ -118,7 +140,6 @@ def home():
 def about():
     return render_template('about.html')
 
-# --- Seller Auth Routes ---
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -139,6 +160,12 @@ def register():
         new_user = User(name=name, email=email, phone=phone, password_hash=hashed_password)
         db.session.add(new_user)
         db.session.commit()
+
+        free_plan = Plan.query.filter_by(name='Free').first()
+        if free_plan:
+            new_sub = Subscription(user_id=new_user.id, plan_id=free_plan.id, status='Active', start_date=datetime.utcnow())
+            db.session.add(new_sub)
+            db.session.commit()
         
         flash('Account created successfully! Please login.', 'success')
         return redirect(url_for('seller_login'))
@@ -175,13 +202,49 @@ def seller_dashboard():
     
     my_products = Product.query.filter_by(user_id=session['user_id']).all()
     my_order_items = OrderItem.query.join(Product).filter(Product.user_id == session['user_id']).order_by(OrderItem.id.desc()).all()
+    user_sub = Subscription.query.filter_by(user_id=session['user_id'], status='Active').first()
     
-    return render_template('seller_dashboard.html', products=my_products, order_items=my_order_items)
+    return render_template('seller_dashboard.html', products=my_products, order_items=my_order_items, user_sub=user_sub)
 
-# --- Public Seller Form ---
+@app.route('/upgrade')
+def upgrade_plan():
+    if not session.get('user_id'):
+        flash('Please login to view upgrade options.', 'danger')
+        return redirect(url_for('seller_login'))
+    
+    plans = Plan.query.filter(Plan.name != 'Free').all()
+    return render_template('upgrade.html', plans=plans)
+
+@app.route('/submit_payment/<int:plan_id>', methods=['POST'])
+def submit_payment(plan_id):
+    if not session.get('user_id'):
+        return redirect(url_for('seller_login'))
+    
+    mpesa_code = request.form.get('mpesa_code', '').strip().upper()
+    
+    if not mpesa_code:
+        flash('Please enter the M-Pesa code.', 'danger')
+        return redirect(url_for('upgrade_plan'))
+    
+    new_sub = Subscription(user_id=session['user_id'], plan_id=plan_id, status='Pending', mpesa_code=mpesa_code)
+    db.session.add(new_sub)
+    db.session.commit()
+    
+    flash('Payment submitted! The admin will verify your code and activate your plan shortly.', 'success')
+    return redirect(url_for('seller_dashboard'))
+
 @app.route('/sell', methods=['GET', 'POST'])
 def sell_product():
     if request.method == 'POST':
+        current_user_id = session.get('user_id')
+        if current_user_id:
+            sub = Subscription.query.filter_by(user_id=current_user_id, status='Active').first()
+            if sub and sub.plan:
+                product_count = Product.query.filter_by(user_id=current_user_id).count()
+                if product_count >= sub.plan.product_limit:
+                    flash(f'You have reached the limit of {sub.plan.product_limit} products for your {sub.plan.name} plan. Please upgrade.', 'danger')
+                    return redirect(url_for('seller_dashboard'))
+
         name = request.form.get('name', '').strip()
         category = request.form.get('category', '').strip()
         seller_name = request.form.get('seller_name', '').strip()
@@ -213,8 +276,6 @@ def sell_product():
                 flash(f'Image upload failed: {e}', 'danger')
                 return redirect(url_for('sell_product'))
         
-        current_user_id = session.get('user_id') 
-        
         new_product = Product(
             name=name, price=price, description=description, category=category,
             image_url=image_url, seller_name=seller_name, 
@@ -226,7 +287,6 @@ def sell_product():
         return redirect(url_for('seller_dashboard') if current_user_id else url_for('home'))
     return render_template('sell.html')
 
-# --- Cart Routes ---
 @app.route('/cart')
 def view_cart():
     cart = session.get('cart', {})
@@ -261,7 +321,6 @@ def remove_from_cart(id):
         flash('Item removed from cart.', 'info')
     return redirect(url_for('view_cart'))
 
-# --- Checkout & Payment ---
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     cart = session.get('cart', {})
@@ -288,21 +347,13 @@ def checkout():
             flash('Please fill in all delivery details.', 'danger')
             return redirect(url_for('checkout'))
         
-        new_order = Order(
-            customer_name=customer_name, phone=phone, location=location,
-            payment_method=payment_method, total_amount=total
-        )
+        new_order = Order(customer_name=customer_name, phone=phone, location=location, payment_method=payment_method, total_amount=total)
         db.session.add(new_order)
         db.session.flush()
 
         items_text = ""
         for item in cart_items:
-            order_item = OrderItem(
-                order_id=new_order.id,
-                product_id=item['product'].id,
-                quantity=item['quantity'],
-                price=item['product'].price
-            )
+            order_item = OrderItem(order_id=new_order.id, product_id=item['product'].id, quantity=item['quantity'], price=item['product'].price)
             db.session.add(order_item)
             items_text += f"- {item['product'].name} (x{item['quantity']}) = KSh {item['subtotal']:,.2f}%0A"
 
@@ -338,7 +389,6 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('home'))
 
-# --- Admin Product Routes ---
 @app.route('/add', methods=['GET', 'POST'])
 def add_product():
     if not session.get('logged_in'):
@@ -375,11 +425,7 @@ def add_product():
                 flash(f'Image upload failed: {e}', 'danger')
                 return redirect(url_for('add_product'))
         
-        new_product = Product(
-            name=name, price=price, description=description, category=category,
-            image_url=image_url, seller_name="TJ Shop", 
-            seller_phone=WHATSAPP_NUMBER, status='Approved'
-        )
+        new_product = Product(name=name, price=price, description=description, category=category, image_url=image_url, seller_name="TJ Shop", seller_phone=WHATSAPP_NUMBER, status='Approved')
         db.session.add(new_product)
         db.session.commit()
         flash('Product added successfully!', 'success')
@@ -443,7 +489,6 @@ def delete_product(id):
     flash('Product deleted.', 'success')
     return redirect(url_for('home'))
 
-# --- Admin Moderation Routes ---
 @app.route('/admin/pending')
 def admin_pending():
     if not session.get('logged_in'):
@@ -474,7 +519,6 @@ def reject_product(id):
     flash('Product rejected and deleted.', 'info')
     return redirect(url_for('admin_pending'))
 
-# --- Admin Orders Dashboard ---
 @app.route('/admin/orders')
 def admin_orders():
     if not session.get('logged_in'):
@@ -495,6 +539,47 @@ def update_order_status(order_id, new_status):
         db.session.commit()
         flash(f'Order #{order.id} status updated to {new_status}.', 'success')
     return redirect(url_for('admin_orders'))
+
+# --- NEW ADMIN SUBSCRIPTION ROUTES ---
+@app.route('/admin/subscriptions')
+def admin_subscriptions():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    pending_subs = Subscription.query.filter_by(status='Pending').all()
+    return render_template('admin_subscriptions.html', subscriptions=pending_subs)
+
+@app.route('/admin/approve_subscription/<int:id>')
+def approve_subscription(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    sub = Subscription.query.get_or_404(id)
+    
+    # 1. Expire any old active plans for this user
+    old_subs = Subscription.query.filter_by(user_id=sub.user_id, status='Active').all()
+    for old in old_subs:
+        old.status = 'Expired'
+        
+    # 2. Activate the new plan
+    sub.status = 'Active'
+    sub.start_date = datetime.utcnow()
+    sub.expiry_date = datetime.utcnow() + timedelta(days=30) # 30 days subscription
+    db.session.commit()
+    
+    flash(f'Subscription approved for {sub.user.name}!', 'success')
+    return redirect(url_for('admin_subscriptions'))
+
+@app.route('/admin/reject_subscription/<int:id>')
+def reject_subscription(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    sub = Subscription.query.get_or_404(id)
+    sub.status = 'Rejected'
+    db.session.commit()
+    
+    flash('Subscription rejected.', 'info')
+    return redirect(url_for('admin_subscriptions'))
 
 if __name__ == '__main__':
     app.run(debug=True)

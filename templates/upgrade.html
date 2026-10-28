@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h2>⬆️ Upgrade Your Plan</h2>
+        <p class="text-muted">Choose a plan that fits your business needs.</p>
+    </div>
+
+    <div class="row justify-content-center">
+        {% for plan in plans %}
+        <div class="col-md-5 mb-4">
+            <div class="card shadow h-100 border-primary">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0">{{ plan.name }} Plan</h4>
+                </div>
+                <div class="card-body text-center d-flex flex-column">
+                    <h2 class="text-success mb-3">KSh {{ "{:,.0f}".format(plan.price) }}<small class="text-muted fs-6">/month</small></h2>
+                    <ul class="list-unstyled mb-4">
+                        <li>✅ Up to {{ plan.product_limit }} products</li>
+                        <li>✅ Priority support</li>
+                        <li>✅ More visibility</li>
+                    </ul>
+                    
+                    <div class="mt-auto">
+                        <div class="alert alert-info text-start">
+                            <strong>How to Pay:</strong><br>
+                            1. Send <strong>KSh {{ "{:,.0f}".format(plan.price) }}</strong> to Pochi la Biashara: <strong>0724 650 536</strong><br>
+                            2. Enter the M-Pesa transaction code below.
+                        </div>
+                        
+                        <form action="/submit_payment/{{ plan.id }}" method="POST">
+                            <div class="input-group mb-3">
+                                <input type="text" name="mpesa_code" class="form-control" placeholder="e.g. QAH9QWWZRR" required>
+                                <button class="btn btn-warning fw-bold" type="submit">Submit</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="/seller_dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
